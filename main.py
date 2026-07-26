@@ -30,14 +30,18 @@ def enviar_alerta_telegram(mensagem):
     if response.status_code == 200:
       print(
           "[SUCESSO] Alerta com estatísticas de cantos e cartões enviado para o"
-          " Telegram!"
+          " Telegram!",
+          flush=True,
       )
       return True
     else:
-      print(f"[ERRO] Falha no Telegram. Código do erro: {response.status_code}")
+      print(
+          f"[ERRO] Falha no Telegram. Código do erro: {response.status_code}",
+          flush=True,
+      )
       return False
   except Exception as e:
-    print(f"[ERRO] Erro de conexão no Telegram: {e}")
+    print(f"[ERRO] Erro de conexão no Telegram: {e}", flush=True)
     return False
 
 
@@ -130,10 +134,10 @@ def obter_dados_partida(fixture_id, favorito_alvo):
 
 
 def monitorar_jogos_ao_vivo():
-  print("==================================================")
-  print("  ROBÔ DE OPORTUNIDADES - CANTOS E CARTÕES        ")
-  print("==================================================")
-  print("Monitorando placar, pressão, cantos e cartões...\n")
+  print("==================================================", flush=True)
+  print("  ROBÔ DE OPORTUNIDADES - CANTOS E CARTÕES        ", flush=True)
+  print("==================================================", flush=True)
+  print("Monitorando placar, pressão, cantos e cartões...\n", flush=True)
 
   historico_placar = {}
   jogos_alertados = set()
@@ -141,23 +145,29 @@ def monitorar_jogos_ao_vivo():
 
   while True:
     try:
-      print("🔄 Consultando partidas ao vivo na API...")
+      print("🔄 Consultando partidas ao vivo na API...", flush=True)
       response = requests.get(URL_API, headers=HEADERS)
-      
+
       if response.status_code == 403:
-        print("⚠️ Erro na API: Status 403 (Verifique o plano ou a chave)")
+        print(
+            "⚠️ Erro na API: Status 403 (Verifique o plano ou a chave)",
+            flush=True,
+        )
         time.sleep(60)
         continue
 
       dados = response.json()
 
       if "response" not in dados:
-        print("[AVISO] Resposta da API fora do padrão. Tentando novamente...")
+        print(
+            "[AVISO] Resposta da API fora do padrão. Tentando novamente...",
+            flush=True,
+        )
         time.sleep(60)
         continue
 
       partidas = dados["response"]
-      print(f"📊 Partidas encontradas ao vivo agora: {len(partidas)}")
+      print(f"📊 Partidas encontradas ao vivo agora: {len(partidas)}", flush=True)
 
       for partida in partidas:
         jogo_id = partida["fixture"]["id"]
@@ -213,17 +223,25 @@ def monitorar_jogos_ao_vivo():
             if favorito == "home":
               if g_home < g_away:
                 favorito_esta_perdendo = True
-                cenario_texto = f"O favorito mandante ({home_team}) está perdendo!"
+                cenario_texto = (
+                    f"O favorito mandante ({home_team}) está perdendo!"
+                )
               elif g_home == g_away:
                 favorito_esta_empatando = True
-                cenario_texto = f"O favorito mandante ({home_team}) sofreu o empate!"
+                cenario_texto = (
+                    f"O favorito mandante ({home_team}) sofreu o empate!"
+                )
             elif favorito == "away":
               if g_away < g_home:
                 favorito_esta_perdendo = True
-                cenario_texto = f"O favorito visitante ({away_team}) está perdendo!"
+                cenario_texto = (
+                    f"O favorito visitante ({away_team}) está perdendo!"
+                )
               elif g_home == g_away:
                 favorito_esta_empatando = True
-                cenario_texto = f"O favorito visitante ({away_team}) sofreu o empate!"
+                cenario_texto = (
+                    f"O favorito visitante ({away_team}) sofreu o empate!"
+                )
 
             if favorito_esta_perdendo or favorito_esta_empatando:
 
@@ -262,7 +280,8 @@ def monitorar_jogos_ao_vivo():
 
               print(
                   f"[ENVIANDO TELEGRAM] {home_team} vs {away_team} aos"
-                  f" {minuto}'"
+                  f" {minuto}'",
+                  flush=True,
               )
               enviar_alerta_telegram(mensagem)
 
@@ -272,7 +291,7 @@ def monitorar_jogos_ao_vivo():
         historico_placar[jogo_id] = {"home": g_home, "away": g_away}
 
     except Exception as e:
-      print(f"[ERRO NO LOOP] {e}")
+      print(f"[ERRO NO LOOP] {e}", flush=True)
 
     time.sleep(60)
 
