@@ -96,7 +96,6 @@ def obter_dados_partida_ao_vivo(fixture_id, favorito_alvo):
       bookmakers = dados_odds["response"][0]["bookmakers"]
       for bm in bookmakers:
         for bet in bm["bets"]:
-          # O ID de dupla chance costuma variar ao vivo, buscamos pelo nome do mercado
           if (
               "Double Chance" in bet.get("name", "")
               or bet.get("id") == 12
@@ -200,7 +199,6 @@ def monitorar_jogos_ao_vivo():
             historico_placar[jogo_id] = {"home": g_home, "away": g_away}
           continue
 
-        # Define o favorito estritamente na PRÉ-LIVE (uma única vez por jogo e guarda no cache)
         if jogo_id not in favoritos_cache:
           favoritos_cache[jogo_id] = descobrir_favorito_pre_live(jogo_id)
 
@@ -298,5 +296,4 @@ def monitorar_jogos_ao_vivo():
 
 
 if __name__ == "__main__":
-  monitorar_jogos_ao-vivo = monitorar_jogos_ao_vivo()
-  monitorar_jogos_ao_vivo
+  monitorar_jogos_ao_vivo()
