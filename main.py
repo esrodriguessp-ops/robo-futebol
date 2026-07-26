@@ -2,6 +2,7 @@ import os
 import time
 import requests
 from datetime import datetime
+from zoneinfo import ZoneInfo
 
 # --- CONFIGURAÇÕES DA API E TELEGRAM ---
 API_KEY = os.getenv("API_KEY", "3b074d04sw3ac472ka26afd38dbeb3db")
@@ -15,24 +16,22 @@ HEADERS = {
 
 # --- LISTA DE IDs DAS PRINCIPAIS LIGAS E SUBLIGAS PERMITIDAS ---
 LIGAS_PERMITIDAS = {
-    39, 40, 41, 42, 45,  # Inglaterra (Premier League, Championship, League One, Two, FA Cup)
-    140, 141, 143,       # Espanha (La Liga, Segunda, Copa del Rey)
-    135, 136, 137,       # Itália (Serie A, Serie B, Coppa Italia)
-    78, 79, 81,          # Alemanha (Bundesliga, 2. Bundesliga, DFB-Pokal)
-    61, 62, 65,          # França (Ligue 1, Ligue 2, Coupe de France)
-    94, 95, 96, 97,      # Portugal (Liga Portugal, 2, Taça de Portugal, Taça da Liga)
-    88, 89, 90,          # Holanda (Eredivisie, Eerste Divisie, KNVB Cup)
+    39, 40, 41, 42, 45,  # Inglaterra
+    140, 141, 143,       # Espanha
+    135, 136, 137,       # Itália
+    78, 79, 81,          # Alemanha
+    61, 62, 65,          # França
+    94, 95, 96, 97,      # Portugal
+    88, 89, 90,          # Holanda
     71, 72, 73,          # Brasil (Série A, Série B, Copa do Brasil)
-    128, 129, 130,       # Argentina (Liga Profesional, Primera Nacional, Copa)
-    2, 3, 84,            # Internacionais (Champions League, Europa League, Conference League)
-    13, 11               # Sul-Americanas (Libertadores, Sul-Americana)
+    128, 129, 130,       # Argentina
+    2, 3, 84,            # Internacionais
+    13, 11               # Sul-Americanas
 }
 
-# Dicionário para armazenar o estado anterior das partidas
 placar_anterior = {}
 
 def enviar_telegram(mensagem):
-    """Envia alerta para o Telegram."""
     url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
     payload = {
         'chat_id': TELEGRAM_CHAT_ID,
@@ -47,9 +46,15 @@ def enviar_telegram(mensagem):
         return False
 
 def monitorar_jogos():
-    print(f"\n[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] Consultando partidas ao vivo na API...")
+    # Pega a data exata no fuso horário do Brasil para evitar conflitos de UTC do servidor
+    fuso_br = ZoneInfo("America/Sao_Paulo")
+    data_hoje = datetime.now(fuso_br).strftime('%Y-%m-%d')
+    hora_atual = datetime.now(fuso_br).strftime('%H:%M:%S')
+    
+    print(f"\n[{data_hoje} {hora_atual}] Consultando jogos do dia na API...")
+    
     url = "https://v3.football.api-sports.io/fixtures"
-    params = {"live": "all"}
+    params = {"date": data_hoje}
     
     try:
         response = requests.get(url, headers=HEADERS, params=params, timeout=15)
@@ -58,29 +63,30 @@ def monitorar_jogos():
             return
             
         dados = response.json().get("response", [])
-        print(f"Total de jogos ao vivo retornados pela API: {len(dados)}")
+        print(f"Total de jogos encontrados para hoje: {len(dados)}")
         
+        jogos_ao_vivo = 0
         for jogo in dados:
+            status_short = jogo['fixture']['status']['short']
+            
+            # Filtra apenas os jogos que estão rolando AO VIVO
+            if status_short not in ['1H', 'HT', '2H', 'ET', 'P']:
+                continue
+                
+            jogos_ao_vivo += 1
             liga_id = jogo['league']['id']
             liga_nome = jogo['league']['name']
             home_team = jogo['teams']['home']['name']
             away_team = jogo['teams']['away']['name']
             
-            # FILTRO DE LIGAS: Ignora se a liga não estiver na lista permitida
+            # FILTRO DE LIGAS
             if liga_id not in LIGAS_PERMITIDAS:
                 continue
                 
-            fixture_id = jogo['fixture']['id']
-            status_short = jogo['fixture']['status']['short']
             minuto = jogo['fixture']['status']['elapsed']
+            print(f"-> AO VIVO NA LIGA PERMITIDA: {home_team} x {away_team} ({liga_nome}) | Min: {minuto}'")
             
-            # Log de rastreio para você ver no Railway que o jogo monitorado foi capturado
-            print(f"-> Monitorando: {home_team} x {away_team} ({liga_nome}) | Status: {status_short} | Min: {minuto}'")
-            
-            # Filtro de tempo: apenas 1º ou 2º tempo, entre o minuto 10 e 82
-            if status_short not in ['1H', '2H'] or minuto is None:
-                continue
-            if not (10 <= minuto <= 82):
+            if minuto is None or not (10 <= minuto <= 82):
                 continue
                 
             home_goals = jogo['goals']['home']
@@ -89,16 +95,16 @@ def monitorar_jogos():
             if home_goals is None or away_goals is None:
                 continue
                 
+            fixture_id = jogo['fixture']['id']
             chave_jogo = str(fixture_id)
             
-            # Se é a primeira vez que vemos o jogo nesta execução, salvamos o placar atual para base de comparação futura
             if chave_jogo not in placar_anterior:
                 placar_anterior[chave_jogo] = (home_goals, away_goals)
                 continue
                 
             g_h_ant, g_a_ant = placar_anterior[chave_jogo]
             
-            # DETECÇÃO DE MUDANÇA DE PLACAR (Gol saiu!)
+            # DETECÇÃO DE GOL
             if home_goals != g_h_ant or away_goals != g_a_ant:
                 mensagem = (
                     f"🚨 **GOL DETECTADO!** 🚨\n\n"
@@ -110,14 +116,15 @@ def monitorar_jogos():
                 print(f"*** GOL DETECTADO E ENVIADO ***: {home_team} {home_goals} x {away_goals} {away_team} ({minuto}')")
                 enviar_telegram(mensagem)
             
-            # Atualiza o placar armazenado na memória
             placar_anterior[chave_jogo] = (home_goals, away_goals)
+            
+        print(f"Jogos ao vivo no total geral agora: {jogos_ao_vivo}")
             
     except Exception as e:
         print(f"Erro na varredura: {e}")
 
 if __name__ == "__main__":
-    print("Robô de Futebol iniciado com sucesso (Modo de Diagnóstico e Alerta Otimizado).")
+    print("Robô de Futebol iniciado com sucesso (Fuso Horário Corrigido).")
     while True:
         monitorar_jogos()
         time.sleep(120)
