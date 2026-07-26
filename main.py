@@ -78,7 +78,7 @@ def main():
                     
                     # Se o placar mudou desde a última varredura
                     if home_goals != antigo_home or away_goals != antigo_away:
-                        print(GOAL! Mudança detectada em {home_team} {home_goals} x {away_goals} {away_team})
+                        print(f"GOAL! Mudança detectada em {home_team} {home_goals} x {away_goals} {away_team}")
                         
                         # Aqui você coloca a regra se o favorito sofreu gol e dispara o Telegram:
                         # mensagem = f"🚨 Alerta! O favorito sofreu gol em {home_team} x {away_team}!"
