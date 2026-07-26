@@ -97,7 +97,6 @@ def obter_dados_partida(fixture_id, favorito_alvo):
     dados_stats = resp_stats.json()
 
     if "response" in dados_stats and len(dados_stats["response"]) >= 2:
-      # O índice 0 geralmente é o mandante e o 1 é o visitante
       for i, time_stats in enumerate(dados_stats["response"]):
         c_cantos = 0
         c_cartoes = 0
@@ -108,7 +107,6 @@ def obter_dados_partida(fixture_id, favorito_alvo):
             c_cantos = int(val) if val is not None else 0
           elif stat["type"] == "Yellow Cards":
             val = stat["value"]
-            # Alguns jogos também podem ter Red Cards, mas focamos em amarelos
             c_cartoes = int(val) if val is not None else 0
 
         if i == 0:
@@ -143,7 +141,14 @@ def monitorar_jogos_ao_vivo():
 
   while True:
     try:
+      print("🔄 Consultando partidas ao vivo na API...")
       response = requests.get(URL_API, headers=HEADERS)
+      
+      if response.status_code == 403:
+        print("⚠️ Erro na API: Status 403 (Verifique o plano ou a chave)")
+        time.sleep(60)
+        continue
+
       dados = response.json()
 
       if "response" not in dados:
@@ -152,6 +157,7 @@ def monitorar_jogos_ao_vivo():
         continue
 
       partidas = dados["response"]
+      print(f"📊 Partidas encontradas ao vivo agora: {len(partidas)}")
 
       for partida in partidas:
         jogo_id = partida["fixture"]["id"]
