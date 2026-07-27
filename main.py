@@ -25,16 +25,15 @@ def teste_com_temporada():
             status = jogo['fixture']['status']['short']
             print(f"⚽ Jogo: {home} x {away} | Status: {status}")
             
-            # Busca os eventos para testar os gols
             fid = jogo['fixture']['id']
             ev_resp = requests.get("https://v3.football.api-sports.io/fixtures/events", headers=HEADERS, params={"fixture": fid})
             eventos = ev_resp.json().get("response", [])
-            gols = [e for e in eventos if e.get('type'] == 'Goal']
+            gols = [e for e in eventos if e.get('type') == 'Goal']
             print(f"   -> Gols na API para este jogo: {len(gols)}")
             for g in gols:
                 print(f"      - Gol de {g['player']['name']} aos {g['time']['elapsed']}' ({g['team']['name']})")
     else:
-        print("Ainda retornou 0. Vamos validar a resposta crua da API.")
+        print("Ainda retornou 0. Resposta crua:")
         print(response.json())
 
 if __name__ == "__main__":
