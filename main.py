@@ -7,30 +7,35 @@ HEADERS = {
     'x-rapidapi-host': 'v3.football.api-sports.io'
 }
 
-def diagnostico():
-    print("\n--- DIAGNÓSTICO DE ACESSO DA API ---")
+def teste_com_temporada():
+    print("\n--- TESTE DE BUSCA COM TEMPORADA 2026 ---")
     url = "https://v3.football.api-sports.io/fixtures"
-    params = {"date": "2026-07-26"}
+    params = {"date": "2026-07-26", "league": 71, "season": 2026}
     
     response = requests.get(url, headers=HEADERS, params=params, timeout=15)
     print(f"Status HTTP: {response.status_code}")
     
     dados = response.json().get("response", [])
-    print(f"Total de jogos no mundo encontrados para hoje: {len(dados)}")
+    print(f"Total de jogos do Brasileirão encontrados: {len(dados)}")
     
     if len(dados) > 0:
-        print("\nExemplos de ligas disponíveis na sua chave:")
-        ligas_encontradas = set()
-        for j in dados[:20]: # Mostra os primeiros 20
-            l_id = j['league']['id']
-            l_name = j['league']['name']
-            country = j['league']['country']
-            ligas_encontradas.add(f"ID {l_id}: {l_name} ({country})")
-        
-        for l in sorted(ligas_encontradas):
-            print(f" - {l}")
+        for jogo in dados:
+            home = jogo['teams']['home']['name']
+            away = jogo['teams']['away']['name']
+            status = jogo['fixture']['status']['short']
+            print(f"⚽ Jogo: {home} x {away} | Status: {status}")
+            
+            # Busca os eventos para testar os gols
+            fid = jogo['fixture']['id']
+            ev_resp = requests.get("https://v3.football.api-sports.io/fixtures/events", headers=HEADERS, params={"fixture": fid})
+            eventos = ev_resp.json().get("response", [])
+            gols = [e for e in eventos if e.get('type'] == 'Goal']
+            print(f"   -> Gols na API para este jogo: {len(gols)}")
+            for g in gols:
+                print(f"      - Gol de {g['player']['name']} aos {g['time']['elapsed']}' ({g['team']['name']})")
     else:
-        print("A API retornou zero jogos para hoje no mundo todo. O plano da API pode estar bloqueado ou expirado.")
+        print("Ainda retornou 0. Vamos validar a resposta crua da API.")
+        print(response.json())
 
 if __name__ == "__main__":
-    diagnostico()
+    teste_com_temporada()
