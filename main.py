@@ -29,7 +29,8 @@ LIGAS_PERMITIDAS = {
     13, 11               # Sul-Americanas
 }
 
-placar_anterior = {}
+# Armazena os IDs dos gols já enviados para evitar duplicidade
+gols_enviados = set()
 
 def enviar_telegram(mensagem):
     url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
@@ -67,11 +68,11 @@ def monitorar_jogos():
         for jogo in dados:
             liga_id = jogo['league']['id']
             
-            # FILTRO DE LIGAS: Ignora se não estiver na nossa lista
             if liga_id not in LIGAS_PERMITIDAS:
                 continue
                 
             jogos_monitorados += 1
+            fixture_id = jogo['fixture']['id']
             liga_nome = jogo['league']['name']
             home_team = jogo['teams']['home']['name']
             away_team = jogo['teams']['away']['name']
@@ -90,37 +91,45 @@ def monitorar_jogos():
             
             if home_goals is None or away_goals is None:
                 continue
-                
-            fixture_id = jogo['fixture']['id']
-            chave_jogo = str(fixture_id)
+
+            # BUSCA OS EVENTOS OFICIAIS DO JOGO (Garantia contra atraso de placar geral)
+            url_events = "https://v3.football.api-sports.io/fixtures/events"
+            params_events = {"fixture": fixture_id}
+            resp_events = requests.get(url_events, headers=HEADERS, params=params_events, timeout=10)
             
-            if chave_jogo not in placar_anterior:
-                placar_anterior[chave_jogo] = (home_goals, away_goals)
-                continue
-                
-            g_h_ant, g_a_ant = placar_anterior[chave_jogo]
-            
-            # DETECÇÃO DE GOL
-            if home_goals != g_h_ant or away_goals != g_a_ant:
-                mensagem = (
-                    f"🚨 **GOL DETECTADO!** 🚨\n\n"
-                    f"🏆 *{liga_nome}* ({jogo['league']['country']})\n"
-                    f"⚽ **{home_team} {home_goals} x {away_goals} {away_team}**\n"
-                    f"⏱️ Minuto: **{minuto}'**\n\n"
-                    f"🔥 *Momento ideal para conferir a pressão e as odds!*"
-                )
-                print(f"*** GOL DETECTADO E ENVIADO ***: {home_team} {home_goals} x {away_goals} {away_team} ({minuto}')")
-                enviar_telegram(mensagem)
-            
-            placar_anterior[chave_jogo] = (home_goals, away_goals)
-            
+            if resp_events.status_code == 200:
+                eventos = resp_events.json().get("response", [])
+                for ev in eventos:
+                    if ev.get('type') == 'Goal' and ev.get('detail') in ['Normal Goal', 'Penalty', 'Own Goal']:
+                        minuto_gol = ev['time']['elapsed']
+                        jogador = ev['player']['name']
+                        equipe_gol = ev['team']['name']
+                        
+                        # Cria uma chave única para este gol específico (Ex: ID do jogo + Minuto + Jogador)
+                        chave_gol = f"{fixture_id}_{minuto_gol}_{jogador}"
+                        
+                        # Se o gol aconteceu entre o minuto 10 e 82 e ainda não foi enviado
+                        if 10 <= minuto_gol <= 82 and chave_gol not in gols_enviados:
+                            gols_enviados.add(chave_gol)
+                            
+                            mensagem = (
+                                f"🚨 **GOL DETECTADO!** 🚨\n\n"
+                                f"🏆 *{liga_nome}* ({jogo['league']['country']})\n"
+                                f"⚽ **{home_team} {home_goals} x {away_goals} {away_team}**\n"
+                                f"👤 Autor: *{jogador}* ({equipe_gol})\n"
+                                f"⏱️ Minuto do Gol: **{minuto_gol}'**\n\n"
+                                f"🔥 *Momento ideal para conferir a pressão e as odds!*"
+                            )
+                            print(f"*** GOL DETECTADO VIA EVENTOS E ENVIADO ***: {home_team} x {away_team} | Gol de {jogador} aos {minuto_gol}'")
+                            enviar_telegram(mensagem)
+                            
         print(f"Jogos filtrados nas ligas permitidas agora: {jogos_monitorados}")
             
     except Exception as e:
         print(f"Erro na varredura: {e}")
 
 if __name__ == "__main__":
-    print("Robô de Futebol iniciado com sucesso (Modo Live Direto).")
+    print("Robô de Futebol iniciado com sucesso (Modo Avançado com Checagem de Eventos).")
     while True:
         monitorar_jogos()
         time.sleep(120)
